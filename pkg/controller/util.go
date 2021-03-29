@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/rsa"
 	"fmt"
-	featuregates "kubevirt.io/containerized-data-importer/pkg/feature-gates"
+	"strconv"
 	"strings"
+
+	featuregates "kubevirt.io/containerized-data-importer/pkg/feature-gates"
 
 	"github.com/go-logr/logr"
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
@@ -14,6 +16,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	extclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -364,12 +367,172 @@ func GetScratchPvcStorageClass(client client.Client, pvc *v1.PersistentVolumeCla
 	return ""
 }
 
+const (
+	AnnoPrefix                   = "cmos.chinamobile.com"
+	AnnoAutoattachGraphicsDevice = AnnoPrefix + "/autoattach-graphics-device"
+	AnnoVFIO                     = AnnoPrefix + "/vfio"
+	AnnoVCPUS                    = AnnoPrefix + "/vcpus"
+	AnnoRequestCPU               = AnnoPrefix + "/request-cpu"
+	AnnoRequestMEM               = AnnoPrefix + "/request-mem"
+	AnnoBindHost                 = AnnoPrefix + "/bind-host"
+)
+
+func GetBindHost(dv *cdiv1.DataVolume) string {
+	if dv == nil {
+		return ""
+	}
+
+	anno := dv.GetAnnotations()
+	if anno == nil {
+		return ""
+	}
+
+	return anno[AnnoBindHost]
+}
+
+// GetRealResource 获取VM需要的Resource
+func GetRealResource(dv *cdiv1.DataVolume) (*v1.ResourceRequirements, error) {
+	rr := &v1.ResourceRequirements{}
+	dvAnno := dv.GetAnnotations()
+
+	cpustr, cpuok := dvAnno[AnnoRequestCPU]
+	memstr, memok := dvAnno[AnnoRequestMEM]
+	if !cpuok && !memok {
+		return rr, nil
+	}
+
+	vcpusstr := dvAnno[AnnoVCPUS]
+	agdstr := dvAnno[AnnoAutoattachGraphicsDevice]
+	vfiostr := dvAnno[AnnoVFIO]
+
+	var (
+		cpu        = resource.Quantity{}
+		mem        = resource.Quantity{}
+		vfio  bool = false
+		agd   bool = true
+		vcpus int64
+		err   error
+	)
+
+	if cpustr != "" {
+		cpu, err = resource.ParseQuantity(cpustr)
+		if err != nil {
+			return rr, err
+		}
+	}
+
+	if memstr != "" {
+		mem, err = resource.ParseQuantity(memstr)
+		if err != nil {
+			return rr, err
+		}
+	}
+
+	if vcpusstr != "" {
+		vcpus, err = strconv.ParseInt(vcpusstr, 10, 64)
+		if err != nil {
+			return rr, err
+		}
+	}
+
+	if agdstr != "" {
+		agd, err = strconv.ParseBool(agdstr)
+		if err != nil {
+			return rr, err
+		}
+	}
+
+	if vfiostr != "" {
+		vfio, err = strconv.ParseBool(vfiostr)
+		if err != nil {
+			return rr, err
+		}
+	}
+
+	// overhead是硬件和一些系统服务额外需要的内存
+	overhead := resource.NewScaledQuantity(0, resource.Kilo)
+
+	// Add the memory needed for pagetables (one bit for every 512b of RAM size)
+	pagetableMemory := resource.NewScaledQuantity(mem.ScaledValue(resource.Kilo), resource.Kilo)
+	pagetableMemory.Set(pagetableMemory.Value() / 512)
+	overhead.Add(*pagetableMemory)
+
+	// Add fixed overhead for shared libraries and such
+	// TODO account for the overhead of kubevirt components running in the pod
+	overhead.Add(resource.MustParse("138Mi"))
+
+	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
+	// overhead per vcpu in MiB
+	// if domain.CPU != nil
+	//   vcpu = cpuSpec.CPU * cpuSpec.Socket * cpuSpec.Thread
+	// else
+	//   vcpu = cpuLimit or cpuRequest
+	coresMemory := resource.MustParse("8Mi")
+	if vcpus == 0 {
+		vcpus = cpu.Value()
+		if vcpus == 0 {
+			vcpus = 1
+		}
+	}
+	value := coresMemory.Value() * vcpus
+	coresMemory = *resource.NewQuantity(value, coresMemory.Format)
+	overhead.Add(coresMemory)
+
+	// static overhead for IOThread
+	overhead.Add(resource.MustParse("8Mi"))
+
+	// Add video RAM overhead
+	if agd {
+		overhead.Add(resource.MustParse("16Mi"))
+	}
+
+	// Additional overhead of 1G for VFIO devices. VFIO requires all guest RAM to be locked
+	// in addition to MMIO memory space to allow DMA. 1G is often the size of reserved MMIO space on x86 systems.
+	// Additial information can be found here: https://www.redhat.com/archives/libvir-list/2015-November/msg00329.html
+	if vfio {
+		overhead.Add(resource.MustParse("1Gi"))
+	}
+
+	mem.Add(*overhead)
+
+	rr.Requests = v1.ResourceList{
+		v1.ResourceCPU:    cpu,
+		v1.ResourceMemory: mem,
+	}
+	return rr, nil
+}
+
 // GetDefaultPodResourceRequirements gets default pod resource requirements from cdi config status
-func GetDefaultPodResourceRequirements(client client.Client) (*v1.ResourceRequirements, error) {
+func GetDefaultPodResourceRequirements(client client.Client, pvc *v1.PersistentVolumeClaim) (*v1.ResourceRequirements, error) {
 	cdiconfig := &cdiv1.CDIConfig{}
 	if err := client.Get(context.TODO(), types.NamespacedName{Name: common.ConfigName}, cdiconfig); err != nil {
 		klog.Errorf("Unable to find CDI configuration, %v\n", err)
 		return nil, err
+	}
+
+	if pvc != nil {
+		var dvName string
+		for _, oref := range pvc.GetOwnerReferences() {
+			if oref.Kind == "DataVolume" {
+				dvName = oref.Name
+				break
+			}
+		}
+		if dvName != "" {
+			dv := &cdiv1.DataVolume{}
+			if err := client.Get(context.TODO(), types.NamespacedName{Namespace: pvc.GetNamespace(), Name: dvName}, dv); err != nil {
+				klog.Errorf("Unable to find DataVolume %s/%s", pvc.GetNamespace(), dvName)
+				return nil, err
+			}
+
+			rr, err := GetRealResource(dv)
+			if err != nil {
+				klog.Errorf("get real resource failed with error %+v", err)
+				return nil, err
+			}
+
+			return rr, nil
+		}
 	}
 
 	return cdiconfig.Status.DefaultPodResourceRequirements, nil
@@ -577,7 +740,7 @@ func getPodsUsingPVCs(c client.Client, namespace string, names sets.String, allo
 }
 
 // GetWorkloadNodePlacement extracts the workload-specific nodeplacement values from the CDI CR
-func GetWorkloadNodePlacement(c client.Client) (*sdkapi.NodePlacement, error) {
+func GetWorkloadNodePlacement(c client.Client, pvc *v1.PersistentVolumeClaim) (*sdkapi.NodePlacement, error) {
 	cr, err := GetActiveCDI(c)
 	if err != nil {
 		return nil, err
@@ -585,6 +748,31 @@ func GetWorkloadNodePlacement(c client.Client) (*sdkapi.NodePlacement, error) {
 
 	if cr == nil {
 		return nil, fmt.Errorf("no active CDI")
+	}
+
+	if pvc != nil {
+		var dvName string
+		for _, oref := range pvc.GetOwnerReferences() {
+			if oref.Kind == "DataVolume" {
+				dvName = oref.Name
+				break
+			}
+		}
+		if dvName != "" {
+			dv := &cdiv1.DataVolume{}
+			if err := c.Get(context.TODO(), types.NamespacedName{Namespace: pvc.GetNamespace(), Name: dvName}, dv); err != nil {
+				klog.Errorf("Unable to find DataVolume %s/%s", pvc.GetNamespace(), dvName)
+				return nil, err
+			}
+			bindHost := GetBindHost(dv)
+			if bindHost != "" {
+				if cr.Spec.Workloads.NodeSelector == nil {
+					cr.Spec.Workloads.NodeSelector = make(map[string]string)
+				}
+
+				cr.Spec.Workloads.NodeSelector["kubernetes.io/hostname"] = bindHost
+			}
+		}
 	}
 
 	return &cr.Spec.Workloads, nil

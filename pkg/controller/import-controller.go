@@ -763,12 +763,12 @@ func createImportPodNameFromPvc(pvc *corev1.PersistentVolumeClaim) string {
 // name, and pvc. A nil secret means the endpoint credentials are not passed to the
 // importer pod.
 func createImporterPod(log logr.Logger, client client.Client, image, verbose, pullPolicy string, podEnvVar *importPodEnvVar, pvc *corev1.PersistentVolumeClaim, scratchPvcName *string, vddkImageName *string) (*corev1.Pod, error) {
-	podResourceRequirements, err := GetDefaultPodResourceRequirements(client)
+	podResourceRequirements, err := GetDefaultPodResourceRequirements(client, pvc)
 	if err != nil {
 		return nil, err
 	}
 
-	workloadNodePlacement, err := GetWorkloadNodePlacement(client)
+	workloadNodePlacement, err := GetWorkloadNodePlacement(client, pvc)
 	if err != nil {
 		return nil, err
 	}

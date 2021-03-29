@@ -273,7 +273,7 @@ var _ = Describe("ImportConfig Controller reconcile loop", func() {
 		err = reconciler.client.Update(context.TODO(), cr)
 		Expect(err).ToNot(HaveOccurred())
 
-		placement, err := GetWorkloadNodePlacement(reconciler.client)
+		placement, err := GetWorkloadNodePlacement(reconciler.client, pvc)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(placement.Affinity).To(Equal(dummyAffinity))
