@@ -526,12 +526,12 @@ func (r *UploadReconciler) makeUploadServiceSpec(name string, pvc *v1.Persistent
 func (r *UploadReconciler) createUploadPod(args UploadPodArgs) (*v1.Pod, error) {
 	ns := args.PVC.Namespace
 
-	podResourceRequirements, err := GetDefaultPodResourceRequirements(r.client)
+	podResourceRequirements, err := GetDefaultPodResourceRequirements(r.client, args.PVC)
 	if err != nil {
 		return nil, err
 	}
 
-	workloadNodePlacement, err := GetWorkloadNodePlacement(r.client)
+	workloadNodePlacement, err := GetWorkloadNodePlacement(r.client, args.PVC)
 	if err != nil {
 		return nil, err
 	}

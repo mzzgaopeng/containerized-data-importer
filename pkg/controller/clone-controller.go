@@ -448,12 +448,12 @@ func (r *CloneReconciler) CreateCloneSourcePod(image, pullPolicy, clientName str
 		return nil, err
 	}
 
-	podResourceRequirements, err := GetDefaultPodResourceRequirements(r.client)
+	podResourceRequirements, err := GetDefaultPodResourceRequirements(r.client, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	workloadNodePlacement, err := GetWorkloadNodePlacement(r.client)
+	workloadNodePlacement, err := GetWorkloadNodePlacement(r.client, nil)
 	if err != nil {
 		return nil, err
 	}

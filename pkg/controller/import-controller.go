@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
-
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +29,7 @@ import (
 	featuregates "kubevirt.io/containerized-data-importer/pkg/feature-gates"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 	"kubevirt.io/containerized-data-importer/pkg/util/naming"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 )
 
 const (
@@ -770,12 +769,12 @@ func createImportPodNameFromPvc(pvc *corev1.PersistentVolumeClaim) string {
 // name, and pvc. A nil secret means the endpoint credentials are not passed to the
 // importer pod.
 func createImporterPod(log logr.Logger, client client.Client, image, verbose, pullPolicy string, podEnvVar *importPodEnvVar, pvc *corev1.PersistentVolumeClaim, scratchPvcName *string, vddkImageName *string, priorityClassName string) (*corev1.Pod, error) {
-	podResourceRequirements, err := GetDefaultPodResourceRequirements(client)
+	podResourceRequirements, err := GetDefaultPodResourceRequirements(client, pvc)
 	if err != nil {
 		return nil, err
 	}
 
-	workloadNodePlacement, err := GetWorkloadNodePlacement(client)
+	workloadNodePlacement, err := GetWorkloadNodePlacement(client, pvc)
 	if err != nil {
 		return nil, err
 	}

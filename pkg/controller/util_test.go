@@ -152,14 +152,14 @@ var _ = Describe("GetScratchPVCStorageClass", func() {
 var _ = Describe("GetWorkloadNodePlacement", func() {
 	It("Should return a node placement, with one CDI CR", func() {
 		client := createClient(createCDIWithWorkload("cdi-test", "1111-1111"))
-		res, err := GetWorkloadNodePlacement(client)
+		res, err := GetWorkloadNodePlacement(client, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(res).ToNot(BeNil())
 	})
 
 	It("Should return an err with > 1 CDI CR", func() {
 		client := createClient(createCDIWithWorkload("cdi-test", "1111-1111"), createCDIWithWorkload("cdi-test2", "2222-2222"))
-		res, err := GetWorkloadNodePlacement(client)
+		res, err := GetWorkloadNodePlacement(client, nil)
 		Expect(err).To(HaveOccurred())
 		Expect(res).To(BeNil())
 	})
