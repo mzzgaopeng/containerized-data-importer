@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"crypto/rsa"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -375,6 +376,8 @@ const (
 	AnnoRequestCPU               = AnnoPrefix + "/request-cpu"
 	AnnoRequestMEM               = AnnoPrefix + "/request-mem"
 	AnnoBindHost                 = AnnoPrefix + "/bind-host"
+	AnnoAffinity                 = AnnoPrefix + "/affinity"
+	AnnoTolerations              = AnnoPrefix + "/tolerations"
 )
 
 func GetBindHost(dv *cdiv1.DataVolume) string {
@@ -750,6 +753,8 @@ func GetWorkloadNodePlacement(c client.Client, pvc *v1.PersistentVolumeClaim) (*
 		return nil, fmt.Errorf("no active CDI")
 	}
 
+	cr = cr.DeepCopy()
+
 	if pvc != nil {
 		var dvName string
 		for _, oref := range pvc.GetOwnerReferences() {
@@ -771,6 +776,23 @@ func GetWorkloadNodePlacement(c client.Client, pvc *v1.PersistentVolumeClaim) (*
 				}
 
 				cr.Spec.Workloads.NodeSelector["kubernetes.io/hostname"] = bindHost
+			}
+		}
+
+		affinity := &v1.Affinity{}
+		tolerations := []v1.Toleration{}
+		anno := pvc.GetAnnotations()
+		if anno != nil {
+			affinityStr := anno[AnnoAffinity]
+			if affinityStr != "" {
+				json.Unmarshal([]byte(affinityStr), &affinity)
+				cr.Spec.Workloads.Affinity = affinity
+			}
+
+			tolerationsStr := anno[AnnoTolerations]
+			if tolerationsStr != "" {
+				json.Unmarshal([]byte(tolerationsStr), &tolerations)
+				cr.Spec.Workloads.Tolerations = tolerations
 			}
 		}
 	}
