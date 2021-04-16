@@ -168,7 +168,7 @@ var _ = Describe("GetWorkloadNodePlacement", func() {
 		errCR := createCDIWithWorkload("cdi-test2", "2222-2222")
 		errCR.Status.Phase = sdkapi.PhaseError
 		client := createClient(createCDIWithWorkload("cdi-test", "1111-1111"), errCR)
-		res, err := GetWorkloadNodePlacement(client)
+		res, err := GetWorkloadNodePlacement(client, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(res).ToNot(BeNil())
 	})

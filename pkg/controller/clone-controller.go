@@ -453,12 +453,12 @@ func (r *CloneReconciler) CreateCloneSourcePod(image, pullPolicy, clientName str
 		return nil, err
 	}
 
-	workloadNodePlacement, err := GetWorkloadNodePlacement(r.client, nil)
+	sourcePvc, err := r.getCloneRequestSourcePVC(pvc)
 	if err != nil {
 		return nil, err
 	}
 
-	sourcePvc, err := r.getCloneRequestSourcePVC(pvc)
+	workloadNodePlacement, err := GetWorkloadNodePlacement(r.client, sourcePvc)
 	if err != nil {
 		return nil, err
 	}

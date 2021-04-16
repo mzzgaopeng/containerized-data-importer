@@ -648,6 +648,13 @@ func (r *UploadReconciler) makeUploadPodSpec(args UploadPodArgs, resourceRequire
 	requestImageSize, _ := getRequestedImageSize(args.PVC)
 	serviceName := naming.GetServiceNameFromResourceName(args.Name)
 	fsGroup := common.QemuSubGid
+
+	podLabels := GetPodLabels(args.PVC)
+	podLabels[common.CDILabelKey] = common.CDILabelValue
+	podLabels[common.CDIComponentLabel] = common.UploadServerCDILabel
+	podLabels[common.UploadServerServiceLabel] = serviceName
+	podLabels[common.UploadTargetLabel] = string(args.PVC.UID)
+
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      args.Name,
@@ -655,12 +662,7 @@ func (r *UploadReconciler) makeUploadPodSpec(args UploadPodArgs, resourceRequire
 			Annotations: map[string]string{
 				annCreatedByUpload: "yes",
 			},
-			Labels: map[string]string{
-				common.CDILabelKey:              common.CDILabelValue,
-				common.CDIComponentLabel:        common.UploadServerCDILabel,
-				common.UploadServerServiceLabel: serviceName,
-				common.UploadTargetLabel:        string(args.PVC.UID),
-			},
+			Labels: podLabels,
 			OwnerReferences: []metav1.OwnerReference{
 				MakePVCOwnerReference(args.PVC),
 			},
