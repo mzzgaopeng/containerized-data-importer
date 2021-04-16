@@ -814,6 +814,11 @@ func makeImporterPodSpec(namespace, image, verbose, pullPolicy string, podEnvVar
 		})
 	}
 
+	podLabels := GetPodLabels(pvc)
+	podLabels[common.CDILabelKey] = common.CDILabelValue
+	podLabels[common.CDIComponentLabel] = common.ImporterPodName
+	podLabels[common.PrometheusLabel] = ""
+
 	pod := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
@@ -825,11 +830,7 @@ func makeImporterPodSpec(namespace, image, verbose, pullPolicy string, podEnvVar
 			Annotations: map[string]string{
 				AnnCreatedBy: "yes",
 			},
-			Labels: map[string]string{
-				common.CDILabelKey:       common.CDILabelValue,
-				common.CDIComponentLabel: common.ImporterPodName,
-				common.PrometheusLabel:   "",
-			},
+			Labels: podLabels,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion:         "v1",

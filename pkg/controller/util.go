@@ -378,6 +378,7 @@ const (
 	AnnoBindHost                 = AnnoPrefix + "/bind-host"
 	AnnoAffinity                 = AnnoPrefix + "/affinity"
 	AnnoTolerations              = AnnoPrefix + "/tolerations"
+	AnnoLabels                   = AnnoPrefix + "/labels"
 )
 
 func GetBindHost(dv *cdiv1.DataVolume) string {
@@ -503,6 +504,17 @@ func GetRealResource(dv *cdiv1.DataVolume) (*v1.ResourceRequirements, error) {
 		v1.ResourceMemory: mem,
 	}
 	return rr, nil
+}
+
+// GetPodlabels get the pod label from pvc's annotation.
+func GetPodLabels(pvc *v1.PersistentVolumeClaim) map[string]string {
+	l := map[string]string{}
+	anno := pvc.GetAnnotations()
+	if anno == nil {
+		return l
+	}
+	json.Unmarshal([]byte(anno[AnnoLabels]), &l)
+	return l
 }
 
 // GetDefaultPodResourceRequirements gets default pod resource requirements from cdi config status
