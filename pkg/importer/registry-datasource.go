@@ -48,17 +48,19 @@ type RegistryDataSource struct {
 	insecureTLS bool
 	imageDir    string
 	//The discovered image file in scratch space.
-	url *url.URL
+	url      *url.URL
+	registry []string
 }
 
 // NewRegistryDataSource creates a new instance of the Registry Data Source.
-func NewRegistryDataSource(endpoint, accessKey, secKey, certDir string, insecureTLS bool) *RegistryDataSource {
+func NewRegistryDataSource(endpoint, accessKey, secKey, certDir string, insecureTLS bool, registry []string) *RegistryDataSource {
 	return &RegistryDataSource{
 		endpoint:    endpoint,
 		accessKey:   accessKey,
 		secKey:      secKey,
 		certDir:     certDir,
 		insecureTLS: insecureTLS,
+		registry:    registry,
 	}
 }
 
@@ -80,7 +82,7 @@ func (rd *RegistryDataSource) Transfer(path string) (ProcessingPhase, error) {
 	rd.imageDir = filepath.Join(path, containerDiskImageDir)
 
 	klog.V(1).Infof("Copying registry image to scratch space.")
-	err = CopyRegistryImage(rd.endpoint, path, containerDiskImageDir, rd.accessKey, rd.secKey, rd.certDir, rd.insecureTLS)
+	err = CopyRegistryImage(rd.endpoint, path, containerDiskImageDir, rd.accessKey, rd.secKey, rd.certDir, rd.insecureTLS, rd.registry)
 	if err != nil {
 		return ProcessingPhaseError, errors.Wrapf(err, "Failed to read registry image")
 	}

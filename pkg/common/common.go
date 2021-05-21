@@ -86,6 +86,9 @@ const (
 	// Preallocation provides a constant to capture out env variable "PREALLOCATION"
 	Preallocation = "PREALLOCATION"
 
+	// Center and Edge registry
+	ImportRegistry = "IMPORTER_REGISTRY"
+
 	// CloningLabelValue provides a constant to use as a label value for pod affinity (controller pkg only)
 	CloningLabelValue = "host-assisted-cloning"
 	// CloningTopologyKey  (controller pkg only)
@@ -181,6 +184,11 @@ const (
 	// UploadFormAsync is the path to POST CDI uploads as form data in async mode
 	UploadFormAsync = "/v1beta1/upload-form-async"
 )
+
+type Registry struct {
+	Name     string `json:"name"`
+	Registry string `json:"registry"`
+}
 
 // PreallocationStatus is used to mark result of preallocation in importer and uploader
 type PreallocationStatus string
