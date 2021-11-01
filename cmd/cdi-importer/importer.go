@@ -13,6 +13,7 @@ package main
 //    ImporterSecretKey     Optional. Secret key is the password to your account.
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -67,6 +68,19 @@ func main() {
 	previousCheckpoint, _ := util.ParseEnvVar(common.ImporterPreviousCheckpoint, false)
 	finalCheckpoint, _ := util.ParseEnvVar(common.ImporterFinalCheckpoint, false)
 	preallocation, err := strconv.ParseBool(os.Getenv(common.Preallocation))
+	registrys, _ := util.ParseEnvVar(common.ImportRegistry, false)
+	var registrysObj []common.Registry
+	var registryList []string
+	if len(registrys) != 0 {
+		err = json.Unmarshal([]byte(registrys), &registrysObj)
+		if err != nil {
+			klog.Errorf("Format registrysObj with json is error, panic")
+			panic(err)
+		}
+		for _, r := range registrysObj {
+			registryList = append(registryList, r.Registry)
+		}
+	}
 	var preallocationApplied bool
 	var dp importer.DataSourceInterface
 
@@ -155,7 +169,7 @@ func main() {
 				os.Exit(1)
 			}
 		case controller.SourceRegistry:
-			dp = importer.NewRegistryDataSource(ep, acc, sec, certDir, insecureTLS)
+			dp = importer.NewRegistryDataSource(ep, acc, sec, certDir, insecureTLS, registryList)
 		case controller.SourceS3:
 			dp, err = importer.NewS3DataSource(ep, acc, sec, certDir)
 			if err != nil {

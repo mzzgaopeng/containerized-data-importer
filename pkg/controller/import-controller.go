@@ -127,6 +127,7 @@ type importPodEnvVar struct {
 	httpsProxy         string
 	noProxy            string
 	certConfigMapProxy string
+	registry           string
 }
 
 // NewImportController creates a new instance of the import controller.
@@ -503,6 +504,7 @@ func (r *ImportReconciler) createImportEnvVar(pvc *corev1.PersistentVolumeClaim)
 		podEnvVar.previousCheckpoint = getValueFromAnnotation(pvc, AnnPreviousCheckpoint)
 		podEnvVar.currentCheckpoint = getValueFromAnnotation(pvc, AnnCurrentCheckpoint)
 		podEnvVar.finalCheckpoint = getValueFromAnnotation(pvc, AnnFinalCheckpoint)
+		podEnvVar.registry = getValueFromAnnotation(pvc, AnnoRegistry)
 
 		var field string
 		if field, err = GetImportProxyConfig(cdiConfig, common.ImportProxyHTTP); err != nil {
@@ -1007,6 +1009,10 @@ func makeImportEnv(podEnvVar *importPodEnvVar, uid types.UID) []corev1.EnvVar {
 		{
 			Name:  common.ImporterImageSize,
 			Value: podEnvVar.imageSize,
+		},
+		{
+			Name:  common.ImportRegistry,
+			Value: podEnvVar.registry,
 		},
 		{
 			Name:  common.OwnerUID,

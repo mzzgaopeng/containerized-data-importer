@@ -94,6 +94,8 @@ const (
 	ImporterFinalCheckpoint = "IMPORTER_FINAL_CHECKPOINT"
 	// Preallocation provides a constant to capture out env variable "PREALLOCATION"
 	Preallocation = "PREALLOCATION"
+	// Center and Edge registry
+	ImportRegistry = "IMPORTER_REGISTRY"
 	// ImportProxyHTTP provides a constant to capture our env variable "HTTP_PROXY"
 	ImportProxyHTTP = "HTTP_PROXY"
 	// ImportProxyHTTPS provides a constant to capture our env variable "HTTPS_PROXY"
@@ -203,6 +205,11 @@ const (
 	// PreallocationApplied is a string inserted into importer's/uploader's exit message
 	PreallocationApplied = "Preallocation applied"
 )
+
+type Registry struct {
+	Name     string `json:"name"`
+	Registry string `json:"registry"`
+}
 
 // ProxyPaths are all supported paths
 var ProxyPaths = append(

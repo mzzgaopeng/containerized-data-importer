@@ -433,6 +433,7 @@ const (
 	AnnoAffinity                 = AnnoPrefix + "/affinity"
 	AnnoTolerations              = AnnoPrefix + "/tolerations"
 	AnnoLabels                   = AnnoPrefix + "/labels"
+	AnnoRegistry                 = AnnoPrefix + "/registrys"
 )
 
 func GetBindHost(dv *cdiv1.DataVolume) string {

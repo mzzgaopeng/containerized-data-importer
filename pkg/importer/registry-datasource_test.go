@@ -36,7 +36,7 @@ var _ = Describe("Registry data source", func() {
 	})
 
 	It("should return transfer after info is called", func() {
-		ds = NewRegistryDataSource("", "", "", "", true)
+		ds = NewRegistryDataSource("", "", "", "", true, nil)
 		result, err := ds.Info()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ProcessingPhaseTransferScratch).To(Equal(result))
@@ -46,7 +46,7 @@ var _ = Describe("Registry data source", func() {
 		if scratchPath == "" {
 			scratchPath = tmpDir
 		}
-		ds = NewRegistryDataSource(ep, accKey, secKey, certDir, insecureRegistry)
+		ds = NewRegistryDataSource(ep, accKey, secKey, certDir, insecureRegistry, nil)
 
 		// Need to pass in a real path if we don't want scratch space needed error.
 		result, err := ds.Transfer(scratchPath)
@@ -66,7 +66,7 @@ var _ = Describe("Registry data source", func() {
 	)
 
 	It("TransferFile should not be called", func() {
-		ds = NewRegistryDataSource("", "", "", "", true)
+		ds = NewRegistryDataSource("", "", "", "", true, nil)
 		result, err := ds.TransferFile("file")
 		Expect(err).To(HaveOccurred())
 		Expect(ProcessingPhaseError).To(Equal(result))

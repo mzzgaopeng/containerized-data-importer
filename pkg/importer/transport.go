@@ -169,18 +169,52 @@ func processLayer(ctx context.Context,
 	return found, nil
 }
 
-func copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir string, insecureRegistry, stopAtFirst bool) error {
+func copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir string, insecureRegistry, stopAtFirst bool, registrys []string) error {
 	klog.Infof("Downloading image from '%v', copying file from '%v' to '%v'", url, pathPrefix, destDir)
 
 	ctx, cancel := commandTimeoutContext()
 	defer cancel()
 	srcCtx := buildSourceContext(accessKey, secKey, certDir, insecureRegistry)
 
-	src, err := readImageSource(ctx, srcCtx, url)
-	if err != nil {
-		return err
+	// transport registyry
+	var src types.ImageSource
+	registryStr := strings.SplitN(url, "//", 2)
+	part := strings.Trim(registryStr[0], ":")
+	if len(part) == 0 {
+		klog.Errorf("split the registry url: part error")
+		return errors.New("split the registry url: part error")
 	}
-	defer closeImage(src)
+	images := registryStr[1]
+	if len(images) == 0 {
+		klog.Errorf("split the registry url: images error")
+		return errors.New("split the registry url: images error")
+	}
+	for i := 0; i < len(registrys)+1; i++ {
+		if i < len(registrys) {
+			var err error
+			klog.Infof("Registry is '%s'", registrys[i])
+			registryurl := part + "://" + registrys[i] + "/" + images
+			src, err = readImageSource(ctx, srcCtx, registryurl)
+			if err == nil {
+				defer closeImage(src)
+				break
+			} else {
+				continue
+			}
+		} else if i == len(registrys) {
+			var err error
+			src, err = readImageSource(ctx, srcCtx, url)
+			if err != nil {
+				return err
+			}
+			defer closeImage(src)
+		}
+	}
+	//src, err := readImageSource(ctx, srcCtx, url)
+	//if err != nil {
+	//	return err
+	//}
+	//defer closeImage(src)
 
 	imgCloser, err := image.FromSource(ctx, srcCtx, src)
 	if err != nil {
@@ -223,8 +257,8 @@ func copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir stri
 // secKey: secretKey for the registry described in url.
 // certDir: directory public CA keys are stored for registry identity verification
 // insecureRegistry: boolean if true will allow insecure registries.
-func CopyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir string, insecureRegistry bool) error {
-	return copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir, insecureRegistry, true)
+func CopyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir string, insecureRegistry bool, registrys []string) error {
+	return copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir, insecureRegistry, true, registrys)
 }
 
 // CopyRegistryImageAll download image from registry with docker image API. It will extract all files under the pathPrefix
@@ -236,5 +270,5 @@ func CopyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir stri
 // certDir: directory public CA keys are stored for registry identity verification
 // insecureRegistry: boolean if true will allow insecure registries.
 func CopyRegistryImageAll(url, destDir, pathPrefix, accessKey, secKey, certDir string, insecureRegistry bool) error {
-	return copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir, insecureRegistry, false)
+	return copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir, insecureRegistry, false, nil)
 }
