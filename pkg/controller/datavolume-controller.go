@@ -969,12 +969,12 @@ func (r *DatavolumeReconciler) expand(log logr.Logger, dv *cdiv1.DataVolume,
 }
 
 func (r *DatavolumeReconciler) createExpansionPod(pvc *corev1.PersistentVolumeClaim, dv *cdiv1.DataVolume, podName string) (*corev1.Pod, error) {
-	resourceRequirements, err := GetDefaultPodResourceRequirements(r.client)
+	resourceRequirements, err := GetDefaultPodResourceRequirements(r.client, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	workloadNodePlacement, err := GetWorkloadNodePlacement(r.client)
+	workloadNodePlacement, err := GetWorkloadNodePlacement(r.client, nil)
 	if err != nil {
 		return nil, err
 	}
